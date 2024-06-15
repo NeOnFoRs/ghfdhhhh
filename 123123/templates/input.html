@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Input Page</title>
+    <style>
+        .draggable {
+            position: absolute;
+            cursor: move;
+            user-select: none;
+        }
+        .controls {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background-color: #f0f0f0;
+            padding: 10px;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+    <div id="text-container">
+        {% for text in texts %}
+        <div class="draggable" style="position: absolute; left: {{ text.style.left }}; top: {{ text.style.top }}; color: {{ text.style.color }}; transform: {{ text.style.transform }};">
+            {{ text.text }}
+        </div>
+        {% endfor %}
+    </div>
+    <input type="range" id="scale-slider" min="1" max="3" value="1" step="0.1" style="display: none;">
+    <input type="color" id="color-picker" style="display: none;">
+    <div class="controls" id="text-controls" style="display: none;">
+        <label for="scale-slider">Масштаб:</label>
+        <br>
+        <input type="range" id="scale-slider-control" min="0.5" max="3" value="1" step="0.1">
+        <br>
+        <label for="color-picker">Цвет:</label>
+        <br>
+        <input type="color" id="color-picker-control">
+        <br>
+        <label for="text-input">Текст:</label>
+        <br>
+        <input type="text" id="text-input">
+    </div>
+    <button id="add-text-btn">Добавить текст</button>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const scaleSlider = document.getElementById('scale-slider');
+            const colorPicker = document.getElementById('color-picker');
+            const textControls = document.getElementById('text-controls');
+            const scaleSliderControl = document.getElementById('scale-slider-control');
+            const colorPickerControl = document.getElementById('color-picker-control');
+            const textInput = document.getElementById('text-input');
+            const addTextBtn = document.getElementById('add-text-btn');
+
+            scaleSliderControl.addEventListener('input', function() {
+                const texts = document.querySelectorAll('.draggable.active');
+                texts.forEach(text => {
+                    text.style.transform = `scale(${this.value})`;
+                });
+                sendDataToServer();
+            });
+
+            colorPickerControl.addEventListener('input', function() {
+                const texts = document.querySelectorAll('.draggable.active');
+                texts.forEach(text => {
+                    text.style.color = this.value;
+                });
+                sendDataToServer();
+            });
+
+            textInput.addEventListener('input', function() {
+                const activeText = document.querySelector('.draggable.active');
+                if (activeText) {
+                    activeText.textContent = this.value;
+                    sendDataToServer();
+                }
+            });
+
+            let activeText = null;
+            document.addEventListener('mousedown', function(event) {
+                if (event.target.classList.contains('draggable')) {
+                    activeText = event.target;
+                    showControls(activeText);
+                } else if (!event.target.closest('.controls')) {
+                    hideControls();
+                }
+            });
+
+            function showControls(text) {
+                textControls.style.display = 'block';
+                scaleSliderControl.value = parseFloat(text.style.transform.replace('scale(', '').replace(')', '')) || 1;
+                colorPickerControl.value = text.style.color || '#000000';
+                textInput.value = text.textContent || '';
+                text.classList.add('active');
+            }
+
+            function hideControls() {
+                textControls.style.display = 'none';
+                const activeText = document.querySelector('.draggable.active');
+                if (activeText) {
+                    activeText.classList.remove('active');
+                }
+            }
+
+            document.addEventListener('mousemove', function(event) {
+                if (activeText) {
+                    activeText.style.left = `${event.clientX}px`;
+                    activeText.style.top = `${event.clientY}px`;
+                    sendDataToServer();
+                }
+            });
+
+            document.addEventListener('mouseup', function() {
+                activeText = null;
+            });
+
+            document.addEventListener('dblclick', function(event) {
+                if (event.target.classList.contains('draggable')) {
+                    event.target.style.color = getRandomColor();
+                    sendDataToServer();
+                }
+            });
+
+            scaleSlider.addEventListener('input', function() {
+                const texts = document.querySelectorAll('.draggable.active');
+                texts.forEach(text => {
+                    text.style.transform = `scale(${this.value})`;
+                });
+                sendDataToServer();
+            });
+
+            colorPicker.addEventListener('input', function() {
+                const texts = document.querySelectorAll('.draggable.active');
+                texts.forEach(text => {
+                    text.style.color = this.value;
+                });
+                sendDataToServer();
+            });
+
+            addTextBtn.addEventListener('click', function() {
+                const text = document.createElement('div');
+                text.textContent = 'Новый текст';
+                text.classList.add('draggable');
+                text.style.position = 'absolute';
+                text.style.left = '50px';
+                text.style.top = '50px';
+                document.getElementById('text-container').appendChild(text);
+                sendDataToServer();
+            });
+
+            function getRandomColor() {
+                const letters = '0123456789ABCDEF';
+                let color = '#';
+                for (let i = 0; i < 6; i++) {
+                    color += letters[Math.floor(Math.random() * 16)];
+                }
+                return color;
+            }
+
+            function sendDataToServer() {
+                const texts = Array.from(document.querySelectorAll('.draggable')).map(text => ({
+                    text: text.textContent,
+                    style: {
+                        left: text.style.left,
+                        top: text.style.top,
+                        color: text.style.color,
+                        transform: text.style.transform
+                    }
+                }));
+                fetch('/api/update_text', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(texts)
+                });
+            }
+        });
+    </script>
+</body>
+</html>
